@@ -165,7 +165,7 @@ function doctor() {
     for (const [event, groups] of Object.entries(parsed.hooks || {})) {
       for (const group of groups) {
         const containsManaged = (group.hooks || []).some((hook) =>
-          typeof hook.command === 'string' && hook.command.includes(`${installRoot}/`));
+          typeof hook.command === 'string' && hook.command.includes('/.siso/agent-hooks/'));
         if (!containsManaged) continue;
         const canonical = (expectedByEvent.get(event) || []).some((expected) => isDeepStrictEqual(group, expected));
         if (!canonical) failures.push(`${profileName} ${event} contains a misplaced, altered, duplicate, or mixed managed group`);

@@ -46,6 +46,46 @@ export function readJsonLines(path, maxBytes = 131072) {
   }
 }
 
+export function *readJsonLinesReverse(path, chunkBytes = 1048576, maxRecordBytes = 8388608) {
+  let descriptor;
+  try {
+    descriptor = openSync(path, 'r');
+    let position = fstatSync(descriptor).size;
+    let carry = '';
+    let discardingOversizedRecord = false;
+    while (position > 0) {
+      const length = Math.min(position, chunkBytes);
+      position -= length;
+      const buffer = Buffer.alloc(length);
+      readSync(descriptor, buffer, 0, length, position);
+      let text = buffer.toString('utf8');
+      if (discardingOversizedRecord) {
+        const boundary = text.lastIndexOf('\n');
+        if (boundary < 0) continue;
+        text = text.slice(0, boundary);
+        discardingOversizedRecord = false;
+      }
+      const lines = `${text}${carry}`.split('\n');
+      carry = lines.shift() || '';
+      if (carry.length > maxRecordBytes) {
+        carry = '';
+        discardingOversizedRecord = true;
+      }
+      for (let index = lines.length - 1; index >= 0; index -= 1) {
+        if (!lines[index]) continue;
+        try { yield JSON.parse(lines[index]); } catch { /* Skip malformed transcript records. */ }
+      }
+    }
+    if (carry) {
+      try { yield JSON.parse(carry); } catch { /* Skip a malformed first record. */ }
+    }
+  } catch {
+    return;
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+}
+
 export function additionalContext(hookEventName, message) {
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: { hookEventName, additionalContext: message }

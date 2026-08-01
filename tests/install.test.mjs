@@ -95,3 +95,13 @@ test('doctor rejects duplicate managed groups and modified payload files', () =>
   writeFileSync(installed, `${readFileSync(installed, 'utf8')}\n// altered\n`);
   assert.notEqual(command(home, 'doctor').status, 0);
 });
+
+test('doctor rejects stale SISO hook versions', () => {
+  const home = mkdtempSync(join(tmpdir(), 'siso-hooks-home-'));
+  assert.equal(command(home, 'install').status, 0);
+  const path = join(home, '.codex', 'hooks.json');
+  const settings = JSON.parse(readFileSync(path, 'utf8'));
+  settings.hooks.Stop.push({ hooks: [{ type: 'command', command: "node '/tmp/home/.siso/agent-hooks/0.0.9/hooks/verify-stop.mjs'" }] });
+  writeFileSync(path, JSON.stringify(settings));
+  assert.notEqual(command(home, 'doctor').status, 0);
+});

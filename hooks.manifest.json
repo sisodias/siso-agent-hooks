@@ -36,6 +36,11 @@
       "id": "verify-stop",
       "file": "hooks/verify-stop.mjs",
       "description": "Require a post-mutation verification command before a completion claim."
+    },
+    {
+      "id": "verification-state",
+      "file": "hooks/verification-state.mjs",
+      "description": "Track successful mutations and verification commands from stable tool lifecycle events."
     }
   ],
   "profiles": {
@@ -53,7 +58,8 @@
           { "hook": "context-guard", "matcher": "Bash|Read|Edit|Write|Agent|Task", "timeout": 10 }
         ],
         "PostToolUse": [
-          { "hook": "skill-events", "matcher": "Skill", "async": true }
+          { "hook": "skill-events", "matcher": "Skill", "async": true },
+          { "hook": "verification-state", "matcher": "Bash|Edit|Write|MultiEdit|apply_patch|exec|exec_command|functions\\.exec", "timeout": 10 }
         ],
         "PreCompact": [
           { "hook": "checkpoint", "timeout": 10 }
@@ -85,6 +91,9 @@
         "PreToolUse": [
           { "hook": "safety-guard", "timeout": 10 },
           { "hook": "context-guard", "timeout": 10 }
+        ],
+        "PostToolUse": [
+          { "hook": "verification-state", "matcher": "Bash|Edit|Write|apply_patch|exec|exec_command|functions\\.exec", "timeout": 10 }
         ],
         "Stop": [
           { "hook": "verify-stop", "timeout": 10 },

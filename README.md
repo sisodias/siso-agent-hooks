@@ -28,7 +28,8 @@ It never imports a live settings file and never copies prompts, responses, trans
 | `context-guard` | Advisory when transcript size crosses a threshold |
 | `safety-guard` | Narrow denial of destructive broad-target commands |
 | `skill-events` | Privacy-reduced skill invocation telemetry |
-| `verify-stop` | Verification gate after code mutation |
+| `verification-state` | Mutation and successful-verification state from tool lifecycle events |
+| `verify-stop` | Verification gate after code mutation, with transcript compatibility fallback |
 
 `hooks.manifest.json` is the complete machine-readable event map for both hosts.
 

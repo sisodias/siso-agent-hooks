@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import { denyPreTool, readPayload } from './lib/common.mjs';
+import { commandFromPayload, isShellTool } from './lib/verification.mjs';
 
 const payload = await readPayload();
 if (!payload) process.exit(0);
-const toolName = payload.tool_name || payload.toolName;
-if (toolName !== 'Bash') process.exit(0);
+const toolName = payload.tool_name || payload.toolName || payload.name;
+if (!isShellTool(toolName)) process.exit(0);
 
-const command = String(payload.tool_input?.command || payload.toolInput?.command || '');
+const command = commandFromPayload(payload);
 const shellWords = command.match(/(?:[^\s"'\\]+|"(?:\\.|[^"])*"|'[^']*')+/g) || [];
 const words = shellWords.map((word) => {
   if ((word.startsWith("'") && word.endsWith("'")) || (word.startsWith('"') && word.endsWith('"'))) {

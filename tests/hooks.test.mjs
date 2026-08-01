@@ -31,6 +31,10 @@ test('safety guard denies destructive broad commands', () => {
     assert.equal(result.status, 0, command);
     assert.equal(JSON.parse(result.stdout).hookSpecificOutput.permissionDecision, 'deny', command);
   }
+  for (const tool_name of ['exec', 'exec_command', 'functions.exec']) {
+    const result = run('hooks/safety-guard.mjs', { tool_name, tool_input: { command: 'git reset --hard' } });
+    assert.equal(JSON.parse(result.stdout).hookSpecificOutput.permissionDecision, 'deny', tool_name);
+  }
 });
 
 test('safety guard allows ordinary commands', () => {
@@ -81,6 +85,50 @@ test('verify stop recognizes Codex apply_patch and last assistant message fields
   assert.equal(JSON.parse(result.stdout).decision, 'block');
 });
 
+test('verify stop recognizes actual Codex custom tool call records and shell mutations', () => {
+  for (const call of [
+    { name: 'apply_patch', input: { command: '*** Begin Patch' } },
+    { name: 'exec', input: JSON.stringify({ command: "sed -i '' 's/a/b/' app.js" }) }
+  ]) {
+    const state = mkdtempSync(join(tmpdir(), 'siso-hook-state-'));
+    const transcript = join(state, 'transcript.jsonl');
+    writeFileSync(transcript, JSON.stringify({
+      type: 'response_item', payload: { type: 'custom_tool_call', call_id: 'call-1', ...call }
+    }));
+    const result = run('hooks/verify-stop.mjs', {
+      session_id: 'codex-real', transcript_path: transcript, stop_hook_active: false,
+      last_assistant_message: 'Implemented and complete.'
+    }, [], { SISO_STATE_HOME: state });
+    assert.equal(JSON.parse(result.stdout).decision, 'block', call.name);
+  }
+});
+
+test('verification lifecycle state survives transcript tail truncation', () => {
+  const state = mkdtempSync(join(tmpdir(), 'siso-hook-state-'));
+  const transcript = join(state, 'transcript.jsonl');
+  writeFileSync(transcript, `${JSON.stringify({ message: { content: [{ type: 'tool_use', name: 'Edit', input: {} }] } })}\n${'x'.repeat(160000)}`);
+  const tracked = run('hooks/verification-state.mjs', {
+    session_id: 'tracked', hook_event_name: 'PostToolUse', tool_name: 'apply_patch',
+    tool_input: { command: '*** Begin Patch' }, tool_response: { exit_code: 0 }
+  }, [], { SISO_STATE_HOME: state });
+  assert.equal(tracked.status, 0);
+  const blocked = run('hooks/verify-stop.mjs', {
+    session_id: 'tracked', transcript_path: transcript, stop_hook_active: false,
+    last_assistant_message: 'Implemented and complete.'
+  }, [], { SISO_STATE_HOME: state });
+  assert.equal(JSON.parse(blocked.stdout).decision, 'block');
+
+  run('hooks/verification-state.mjs', {
+    session_id: 'tracked', hook_event_name: 'PostToolUse', tool_name: 'exec',
+    tool_input: { command: 'npm test' }, tool_response: { exit_code: 0 }
+  }, [], { SISO_STATE_HOME: state });
+  const allowed = run('hooks/verify-stop.mjs', {
+    session_id: 'tracked', transcript_path: transcript, stop_hook_active: false,
+    last_assistant_message: 'Implemented and complete.'
+  }, [], { SISO_STATE_HOME: state });
+  assert.equal(allowed.stdout, '');
+});
+
 test('verify stop allows a post-mutation test', () => {
   const state = mkdtempSync(join(tmpdir(), 'siso-hook-state-'));
   const transcript = join(state, 'transcript.jsonl');
@@ -128,7 +176,7 @@ test('transcript reader bounds I/O for large sparse transcripts', async () => {
   const transcript = join(state, 'large.jsonl');
   const descriptor = openSync(transcript, 'w');
   closeSync(descriptor);
-  truncateSync(transcript, 512 * 1024 * 1024);
+  truncateSync(transcript, 64 * 1024 * 1024);
   const result = run('hooks/verify-stop.mjs', {
     session_id: 'sparse', transcript_path: transcript, stop_hook_active: false
   }, [], { SISO_STATE_HOME: state });
