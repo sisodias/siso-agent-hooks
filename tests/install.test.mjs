@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -18,6 +18,8 @@ test('clean temporary-home install is idempotent and doctor passes', () => {
   assert.equal(first.status, 0, first.stderr);
   const second = command(home, 'install');
   assert.equal(second.status, 0, second.stderr);
+  assert.equal(readdirSync(join(home, '.claude')).filter((name) => name.includes('.siso-backup-')).length, 0);
+  assert.equal(readdirSync(join(home, '.codex')).filter((name) => name.includes('.siso-backup-')).length, 0);
   const doctor = command(home, 'doctor');
   assert.equal(doctor.status, 0, doctor.stderr);
 

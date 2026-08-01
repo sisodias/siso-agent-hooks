@@ -81,7 +81,8 @@ function stripManagedHooks(group) {
 function applyProfile(profileName, mode) {
   const profile = manifest.profiles[profileName];
   const target = join(targetHome, profile.target);
-  const existing = existsSync(target) ? JSON.parse(readFileSync(target, 'utf8')) : {};
+  const prior = existsSync(target) ? readFileSync(target, 'utf8') : null;
+  const existing = prior ? JSON.parse(prior) : {};
   existing.hooks ||= {};
 
   for (const event of Object.keys(existing.hooks)) {
@@ -101,11 +102,16 @@ function applyProfile(profileName, mode) {
     console.log(`${mode}: would update ${target}`);
     return;
   }
+  const next = `${JSON.stringify(existing, null, 2)}\n`;
+  if (prior === next) {
+    console.log(`${mode}: unchanged ${target}`);
+    return;
+  }
   mkdirSync(dirname(target), { recursive: true });
   if (existsSync(target)) {
     writeFileSync(`${target}.siso-backup-${Date.now()}`, readFileSync(target), { mode: 0o600 });
   }
-  writeFileSync(target, `${JSON.stringify(existing, null, 2)}\n`, { mode: 0o600 });
+  writeFileSync(target, next, { mode: 0o600 });
   console.log(`${mode}: updated ${target}`);
 }
 
