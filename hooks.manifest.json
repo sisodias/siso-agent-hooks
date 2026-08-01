@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "name": "siso-agent-hooks",
+  "version": "0.1.0",
+  "runtime": {
+    "command": "node",
+    "minimum_version": 20
+  },
+  "hooks": [
+    {
+      "id": "agent-state",
+      "file": "hooks/agent-state.mjs",
+      "description": "Record privacy-reduced lifecycle state for operator surfaces."
+    },
+    {
+      "id": "checkpoint",
+      "file": "hooks/checkpoint.mjs",
+      "description": "Write a metadata-only recovery checkpoint before compaction."
+    },
+    {
+      "id": "context-guard",
+      "file": "hooks/context-guard.mjs",
+      "description": "Warn when the active transcript crosses a configurable size threshold."
+    },
+    {
+      "id": "safety-guard",
+      "file": "hooks/safety-guard.mjs",
+      "description": "Deny a small set of destructive broad-target shell and Git operations."
+    },
+    {
+      "id": "skill-events",
+      "file": "hooks/skill-events.mjs",
+      "description": "Append privacy-reduced skill invocation telemetry."
+    },
+    {
+      "id": "verify-stop",
+      "file": "hooks/verify-stop.mjs",
+      "description": "Require a post-mutation verification command before a completion claim."
+    }
+  ],
+  "profiles": {
+    "claude": {
+      "target": ".claude/settings.json",
+      "events": {
+        "SessionStart": [
+          { "hook": "agent-state", "args": ["idle"] }
+        ],
+        "UserPromptSubmit": [
+          { "hook": "agent-state", "args": ["working"] }
+        ],
+        "PreToolUse": [
+          { "hook": "safety-guard", "matcher": "Bash", "timeout": 10 },
+          { "hook": "context-guard", "matcher": "Bash|Read|Edit|Write|Agent|Task", "timeout": 10 }
+        ],
+        "PostToolUse": [
+          { "hook": "skill-events", "matcher": "Skill", "async": true }
+        ],
+        "PreCompact": [
+          { "hook": "checkpoint", "timeout": 10 }
+        ],
+        "Stop": [
+          { "hook": "verify-stop", "timeout": 10 },
+          { "hook": "agent-state", "args": ["idle"], "async": true }
+        ],
+        "SessionEnd": [
+          { "hook": "agent-state", "args": ["released"], "async": true }
+        ],
+        "SubagentStart": [
+          { "hook": "agent-state", "args": ["subagent-start"], "async": true }
+        ],
+        "SubagentStop": [
+          { "hook": "agent-state", "args": ["subagent-stop"], "async": true }
+        ]
+      }
+    },
+    "codex": {
+      "target": ".codex/hooks.json",
+      "events": {
+        "SessionStart": [
+          { "hook": "agent-state", "args": ["idle"], "async": true }
+        ],
+        "UserPromptSubmit": [
+          { "hook": "agent-state", "args": ["working"], "async": true }
+        ],
+        "PreToolUse": [
+          { "hook": "safety-guard", "timeout": 10 },
+          { "hook": "context-guard", "timeout": 10 }
+        ],
+        "Stop": [
+          { "hook": "verify-stop", "timeout": 10 },
+          { "hook": "agent-state", "args": ["idle"] }
+        ],
+        "PreCompact": [
+          { "hook": "checkpoint", "timeout": 10 }
+        ]
+      }
+    }
+  },
+  "excluded_state": [
+    "credentials and provider keys",
+    "prompt and response bodies",
+    "raw transcripts",
+    "personal memory and lessons",
+    "Herdr socket addresses and private topology",
+    "project-specific hooks",
+    "generated telemetry databases"
+  ]
+}
