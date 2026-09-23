@@ -1,5 +1,7 @@
 # Agent guide — SISO Agent Hooks
 
+**In one line:** Portable lifecycle hooks for Claude Code and Codex, installing state, checkpoint and context-guard handlers into each host's configuration. District: `SISO_Agents` (`~/SISO_Workspace/SISO_Agents/siso-agent-hooks`).
+
 This repository is the public, portable source for SISO lifecycle hooks shared by Claude Code and Codex.
 
 ## Rules
